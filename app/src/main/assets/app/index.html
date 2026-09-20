@@ -276,7 +276,9 @@ const store = {
 };
 const DEFAULT_HOST = '192.168.1.76';
 const MAX_MSGS = 200;
-const TYPING_TIMEOUT_MS = 180000;
+const DEFAULT_LLM_TIMEOUT_MS = 240000; // device's llm_timeout_ms; refreshed from /api/config on connect
+const TYPING_MARGIN_MS = 20000;        // grace after the device gives up on the LLM
+let typingTimeoutMs = (Number(store.get('llmTimeout', '')) || DEFAULT_LLM_TIMEOUT_MS) + TYPING_MARGIN_MS;
 const IMG_MAX_PX = 1280;
 const THUMB_PX = 96;
 
@@ -441,8 +443,8 @@ function openUrl(u) { u = absUrl(u); if (NATIVE) window.Android.openUrl(u); else
 /* ---------------- markdown (small, safe) ---------------- */
 function md(src) {
   const hold = [];
-  const put = (html) => { hold.push(html); return ' ' + (hold.length - 1) + ' '; };
-  let s = esc(String(src).replace(/ /g, ''));
+  const put = (html) => { hold.push(html); return '\u0000' + (hold.length - 1) + '\u0000'; };
+  let s = esc(String(src).replace(/\u0000/g, ''));
   s = s.replace(/```([\s\S]*?)```/g, (m, c) => put('<pre><code>' + c.replace(/^\w*\n/, '') + '</code></pre>'));
   s = s.replace(/`([^`\n]+)`/g, (m, c) => put('<code>' + c + '</code>'));
   s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]*)\)/g, (m, txt, u) => put('<a href="' + u + '">' + txt + '</a>'));
@@ -451,7 +453,7 @@ function md(src) {
   s = s.replace(/^#{1,3} +(.+)$/gm, '<strong>$1</strong>');
   s = s.replace(/^[-*] +/gm, '• ');
   s = s.replace(/\n/g, '<br>');
-  return s.replace(/ (\d+) /g, (m, i) => hold[+i]);
+  return s.replace(/\u0000(\d+)\u0000/g, (m, i) => hold[+i]);
 }
 
 /* ---------------- messages ---------------- */
@@ -503,7 +505,14 @@ let typingTimer = null;
 function setTyping(on) {
   typingEl.classList.toggle('show', on);
   clearTimeout(typingTimer);
-  if (on) { typingTimer = setTimeout(() => setTyping(false), TYPING_TIMEOUT_MS); scrollDown(); }
+  if (on) { typingTimer = setTimeout(() => setTyping(false), typingTimeoutMs); scrollDown(); }
+}
+// Keep the "typing" indicator up for as long as the device may still be waiting on the LLM.
+async function syncLlmTimeout() {
+  const r = await api('GET', '/api/config?fields=llm_timeout_ms', null, 8000);
+  const d = r.status === 200 ? parse(r.body) : null;
+  const ms = d ? parseInt(d.llm_timeout_ms, 10) : NaN;
+  if (ms > 0) { store.set('llmTimeout', String(ms)); typingTimeoutMs = ms + TYPING_MARGIN_MS; }
 }
 
 /* ---------------- websocket ---------------- */
@@ -532,7 +541,7 @@ function connect() {
   ws = s;
   connectT = setTimeout(() => { if (ws === s && s.readyState === 0) { try { s.close(); } catch (e) { /* ignore */ } } }, 8000);
   s.onopen = () => {
-    clearTimeout(connectT); backoff = 2000; setConn('online');
+    clearTimeout(connectT); backoff = 2000; setConn('online'); syncLlmTimeout();
     try { s.send(JSON.stringify({ type: 'hello', chat_id: chatId })); } catch (e) { /* ignore */ }
     hb = setInterval(() => { if (s.readyState === 1) { try { s.send('{"type":"ping"}'); } catch (e) { /* ignore */ } } }, 15000);
   };

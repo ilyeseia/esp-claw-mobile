@@ -18,8 +18,8 @@ android {
         minSdk = 29
         // Kept below 35 so the soft keyboard resizes the WebView (no forced edge-to-edge).
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
     }
 
     // Release signing: read from keystore.properties (git-ignored) so secrets never enter the repo.
