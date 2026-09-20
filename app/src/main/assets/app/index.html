@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>ESP-Claw</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1f2630; --text:#e6edf3; --muted:#8b98a8;
+  --accent:#ff6a3d; --accent-2:#ff8a5c; --on-accent:#fff; --border:#2a323d;
+  --ok:#3fb950; --warn:#d29922; --err:#f85149; --shadow:0 6px 20px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#f5f6f8; --panel:#ffffff; --panel2:#eceff3; --text:#1b2330; --muted:#617083;
+  --border:#dde2e9; --shadow:0 6px 20px rgba(20,30,50,.12); color-scheme:light;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Arabic",sans-serif;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+#app{display:flex;flex-direction:column;height:100dvh}
+
+/* header */
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;
+  background:var(--panel);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:20px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+.brand b{display:block;font-size:16px;letter-spacing:.2px}
+.brand small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:start}
+.pill{display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:99px;background:var(--panel2);
+  font-size:12.5px;color:var(--muted);white-space:nowrap}
+.pill i{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.pill[data-s="online"] i{background:var(--ok);box-shadow:0 0 0 3px rgba(63,185,80,.2)}
+.pill[data-s="online"]{color:var(--text)}
+.pill[data-s="connecting"] i{background:var(--warn);animation:pulse 1s infinite}
+.pill[data-s="offline"] i{background:var(--err)}
+@keyframes pulse{50%{opacity:.35}}
+
+/* layout */
+main{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0;display:none;flex-direction:column}
+.view.active{display:flex}
+.scroll{flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch}
+
+/* nav */
+nav{display:flex;background:var(--panel);border-top:1px solid var(--border)}
+nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 9px;
+  color:var(--muted);font-size:11.5px}
+nav button svg{width:23px;height:23px}
+nav button.active{color:var(--accent)}
+
+/* chat */
+#banner{display:none;margin:10px 12px 0;padding:10px 12px;border-radius:12px;background:rgba(248,81,73,.12);
+  border:1px solid rgba(248,81,73,.35);font-size:13px;align-items:center;gap:10px;justify-content:space-between}
+#banner.show{display:flex}
+#banner button{color:var(--accent);font-weight:600;white-space:nowrap}
+#msgs{flex:1;overflow-y:auto;padding:14px 12px 6px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.empty{margin:auto;text-align:center;color:var(--muted);padding:24px}
+.empty .big{font-size:46px;margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.chip{padding:8px 13px;border-radius:99px;background:var(--panel);border:1px solid var(--border);font-size:13.5px;color:var(--text)}
+.chip:active{background:var(--panel2)}
+.m{display:flex;flex-direction:column;max-width:86%;gap:3px}
+.m.u{align-self:flex-end;align-items:flex-end}
+.m.a{align-self:flex-start;align-items:flex-start}
+.b{padding:9px 13px;border-radius:18px;word-break:break-word;overflow-wrap:anywhere}
+.m.u .b{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--on-accent);border-end-end-radius:5px}
+.m.a .b{background:var(--panel);border:1px solid var(--border);border-end-start-radius:5px}
+.b code{font:12.5px ui-monospace,Menlo,Consolas,monospace;background:rgba(127,127,127,.2);padding:1px 5px;border-radius:5px;direction:ltr;unicode-bidi:isolate}
+.b pre{margin:6px 0 0;padding:9px 11px;border-radius:10px;background:rgba(0,0,0,.28);overflow-x:auto;direction:ltr;text-align:left}
+.b pre code{background:none;padding:0}
+.b a{color:inherit;text-decoration:underline}
+.m.a .b a{color:var(--accent)}
+.meta{font-size:11px;color:var(--muted);display:flex;gap:8px;padding:0 4px}
+.meta .fail{color:var(--err);font-weight:600}
+.att{display:flex;flex-wrap:wrap;gap:6px}
+.att img{max-width:180px;max-height:150px;border-radius:12px;display:block;border:1px solid var(--border)}
+.att a,.att span{padding:5px 10px;border-radius:99px;background:var(--panel2);font-size:12.5px;color:var(--text);text-decoration:none}
+#typing{display:none;align-self:flex-start;padding:11px 15px;border-radius:18px;background:var(--panel);border:1px solid var(--border);gap:5px}
+#typing.show{display:flex}
+#typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:bounce 1.2s infinite}
+#typing i:nth-child(2){animation-delay:.15s}#typing i:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-5px);opacity:1}}
+
+#pending{display:none;gap:8px;padding:8px 12px 0;overflow-x:auto}
+#pending.show{display:flex}
+.pf{position:relative;flex:none}
+.pf img{width:58px;height:58px;object-fit:cover;border-radius:11px;border:1px solid var(--border)}
+.pf button{position:absolute;top:-6px;inset-inline-end:-6px;width:20px;height:20px;border-radius:50%;background:var(--err);
+  color:#fff;font-size:13px;line-height:20px}
+#composer{display:flex;align-items:flex-end;gap:8px;padding:10px 12px;background:var(--bg)}
+#composer textarea{flex:1;resize:none;max-height:120px;min-height:42px;padding:10px 14px;border-radius:22px;
+  background:var(--panel);border:1px solid var(--border);outline:none}
+#composer textarea:focus{border-color:var(--accent)}
+.ib{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ib svg{width:22px;height:22px}
+#attach{background:var(--panel2);color:var(--muted)}
+#sendBtn{background:var(--accent);color:var(--on-accent)}
+#sendBtn:disabled{opacity:.45}
+[dir="rtl"] #sendBtn svg{transform:scaleX(-1)}
+
+/* cards & forms */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:14px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{font-weight:600;text-align:end;direction:ltr;unicode-bidi:plaintext}
+.tag{padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+.tag.ok{background:rgba(63,185,80,.16);color:var(--ok)}
+.tag.bad{background:rgba(248,81,73,.16);color:var(--err)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px 14px;border-radius:13px;
+  background:var(--panel2);font-weight:600;margin-top:9px}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
+.btn.danger{background:rgba(248,81,73,.14);color:var(--err)}
+.btn:disabled{opacity:.5}
+.btn svg{width:19px;height:19px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+input[type=text],select{width:100%;padding:11px 13px;border-radius:12px;background:var(--bg);border:1px solid var(--border);outline:none}
+input[type=text]{direction:ltr;text-align:start}
+input:focus,select:focus{border-color:var(--accent)}
+.hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+#scanRes{margin-top:10px;font-size:13.5px;color:var(--muted)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0;color:var(--text);font-size:15px}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;width:48px;height:28px;border-radius:99px;background:var(--panel2);
+  border:1px solid var(--border);position:relative;transition:.2s;outline:none}
+input[type=checkbox]::after{content:"";position:absolute;top:2px;inset-inline-start:2px;width:22px;height:22px;border-radius:50%;
+  background:var(--muted);transition:.2s}
+input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+input[type=checkbox]:checked::after{inset-inline-start:22px;background:#fff}
+#testRes{margin-top:10px;font-size:13.5px;min-height:20px}
+#testRes.ok{color:var(--ok)}#testRes.bad{color:var(--err)}
+
+/* device panel overlay */
+#panel{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:30}
+#panel.show{display:flex}
+#panel .bar{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--border)}
+#panel .bar b{flex:1;font-size:15px}
+#panel iframe{flex:1;border:0;width:100%;background:#fff}
+.tb{padding:8px 12px;border-radius:10px;background:var(--panel2);font-weight:600;font-size:13.5px}
+
+/* modal + toast */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:40;padding:24px}
+#modal.show{display:flex}
+#modal .box{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:20px;width:100%;max-width:340px;box-shadow:var(--shadow)}
+#modal h4{margin:0 0 6px;font-size:17px}#modal p{margin:0 0 16px;color:var(--muted)}
+#modal .acts{display:flex;gap:10px}#modal .acts button{flex:1;padding:11px;border-radius:12px;background:var(--panel2);font-weight:600}
+#modal .acts .ok{background:var(--accent);color:var(--on-accent)}
+#toast{position:fixed;inset-inline:16px;bottom:84px;display:flex;justify-content:center;pointer-events:none;z-index:50}
+#toast div{background:var(--panel2);border:1px solid var(--border);padding:10px 16px;border-radius:99px;box-shadow:var(--shadow);
+  font-size:13.5px;opacity:0;transform:translateY(8px);transition:.25s}
+#toast div.show{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="logo">🦞</div>
+      <div><b>ESP-Claw</b><small id="hostLabel"></small></div>
+    </div>
+    <div class="pill" id="conn" data-s="offline"><i></i><span id="connText"></span></div>
+  </header>
+
+  <main>
+    <!-- CHAT -->
+    <section id="v-chat" class="view active">
+      <div id="banner"><span id="bannerText"></span><button id="bannerBtn" data-i="settings"></button></div>
+      <div id="msgs"></div>
+      <div id="pending"></div>
+      <div id="composer">
+        <button class="ib" id="attach" aria-label="attach">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l9-9a3.7 3.7 0 015.2 5.2l-9 9a1.8 1.8 0 01-2.6-2.6l8.3-8.3"/></svg>
+        </button>
+        <textarea id="input" rows="1" dir="auto"></textarea>
+        <button class="ib" id="sendBtn" aria-label="send">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.4-7.5a1 1 0 000-1.8L3.4 3.6a1 1 0 00-1.4 1.2L4.2 11l9 1-9 1-2.2 6.2a1 1 0 001.4 1.2z"/></svg>
+        </button>
+        <input type="file" id="file" accept="image/*" hidden>
+      </div>
+    </section>
+
+    <!-- CONTROL -->
+    <section id="v-control" class="view">
+      <div class="scroll">
+        <div class="card">
+          <h3 data-i="deviceStatus"></h3>
+          <div id="statusRows"></div>
+          <button class="btn" id="refreshBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5"/></svg><span data-i="refresh"></span></button>
+        </div>
+        <div class="card">
+          <h3 data-i="quick"></h3>
+          <div class="chips" style="justify-content:flex-start;margin:0" id="quickChips"></div>
+        </div>
+        <div class="card">
+          <h3 data-i="actions"></h3>
+          <button class="btn primary" id="openPanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg><span data-i="openPanel"></span></button>
+          <button class="btn" id="openBrowser"><span data-i="openBrowser"></span></button>
+          <button class="btn danger" id="restartBtn"><span data-i="restart"></span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="v-settings" class="view">
+      <div class="scroll">
+        <div class="card">
+          <h3 data-i="connection"></h3>
+          <label for="hostInput" data-i="deviceAddress"></label>
+          <input type="text" id="hostInput" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="192.168.1.76">
+          <div class="hint" data-i="addressHint"></div>
+          <button class="btn primary" id="saveHost"><span data-i="saveConnect"></span></button>
+          <div id="testRes"></div>
+          <button class="btn" id="scanBtn"><span data-i="scan"></span></button>
+          <div id="scanRes"></div>
+        </div>
+        <div class="card">
+          <h3 data-i="notifications"></h3>
+          <label class="switch" for="bgToggle"><span data-i="bgLabel"></span><input type="checkbox" id="bgToggle"></label>
+          <div class="hint" data-i="bgHint"></div>
+        </div>
+        <div class="card">
+          <h3 data-i="appearance"></h3>
+          <label for="langSel" data-i="language"></label>
+          <select id="langSel"><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option></select>
+          <label for="themeSel" data-i="theme"></label>
+          <select id="themeSel"><option value="auto" data-i="themeAuto"></option><option value="dark" data-i="themeDark"></option><option value="light" data-i="themeLight"></option></select>
+        </div>
+        <div class="card">
+          <h3 data-i="conversation"></h3>
+          <button class="btn danger" id="newChat"><span data-i="newChat"></span></button>
+          <div class="hint" data-i="newChatHint"></div>
+        </div>
+        <div class="hint" style="text-align:center;padding:4px 0 14px" id="about"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav>
+    <button data-tab="chat" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 01-11.6 7.1L3 21l1.9-5.7A8 8 0 1121 12z"/></svg>
+      <span data-i="tabChat"></span></button>
+    <button data-tab="control">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      <span data-i="tabControl"></span></button>
+    <button data-tab="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+      <span data-i="tabSettings"></span></button>
+  </nav>
+</div>
+
+<div id="panel">
+  <div class="bar">
+    <button class="tb" id="panelBack">&#8592;</button>
+    <b data-i="openPanel"></b>
+    <button class="tb" id="panelReload">&#8635;</button>
+  </div>
+  <iframe id="frame" title="device"></iframe>
+</div>
+<div id="modal"><div class="box"><h4 id="mTitle"></h4><p id="mText"></p>
+  <div class="acts"><button id="mNo"></button><button class="ok" id="mYes"></button></div></div></div>
+<div id="toast"></div>
+
+<script>
+(() => {
+'use strict';
+
+const NATIVE = typeof window.Android !== 'undefined';
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('ec.' + k); return v === null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('ec.' + k, v); } catch (e) { /* ignore */ } },
+};
+const DEFAULT_HOST = '192.168.1.76';
+const MAX_MSGS = 200;
+const TYPING_TIMEOUT_MS = 180000;
+const IMG_MAX_PX = 1280;
+const THUMB_PX = 96;
+
+/* ---------------- i18n ---------------- */
+const I18N = {
+  en: {
+    tabChat:'Chat', tabControl:'Control', tabSettings:'Settings', settings:'Settings',
+    online:'Online', connecting:'Connecting…', offline:'Offline',
+    placeholder:'Type a message…', emptyTitle:'Talk to your ESP-Claw', emptyText:'Ask anything or control the device.',
+    bannerOffline:'Cannot reach the device. Check Wi-Fi and the address.',
+    sendFailed:'Failed — tap to retry', notConnected:'Not connected to the device',
+    deviceStatus:'Device status', refresh:'Refresh', quick:'Quick prompts', actions:'Actions',
+    openPanel:'Full device panel', openBrowser:'Open in browser', restart:'Restart device',
+    wifi:'Wi-Fi', connected:'Connected', disconnected:'Disconnected', ip:'IP address', mode:'Wi-Fi mode',
+    apSsid:'Access point', webChat:'Web chat', ready:'Ready', notReady:'Not ready', storage:'Storage path',
+    statusFail:'Could not read device status',
+    restartTitle:'Restart device?', restartText:'The device will reboot and reconnect in a few seconds.',
+    restartDone:'Restart requested', cancel:'Cancel', confirm:'Confirm',
+    connection:'Connection', deviceAddress:'Device address',
+    addressHint:'IP address or hostname of your ESP-Claw (e.g. 192.168.1.76). Phone and device must be on the same network.',
+    saveConnect:'Save & connect', testing:'Testing…', testOk:'Connected — device IP', testFail:'Cannot reach the device',
+    appearance:'Appearance', language:'Language', theme:'Theme', themeAuto:'Automatic', themeDark:'Dark', themeLight:'Light',
+    conversation:'Conversation', newChat:'Start a new conversation', newChatHint:'Clears the local history and creates a new chat id.',
+    attachFail:'Could not attach image', uploaded:'Image attached', about:'ESP-Claw Mobile',
+    q1:'What time is it?', q2:'Show device status', q3:'What can you do?', q4:'List my scheduled tasks',
+    scan:'Find device on network', scanning:'Scanning the network…', scanNone:'No ESP-Claw found on', scanOffline:'Not connected to a Wi-Fi network',
+    scanPick:'Tap a device to connect',
+    notifications:'Notifications', bgLabel:'Notify me of replies in the background',
+    bgHint:'Keeps a small background connection to the device so replies arrive as notifications while the app is closed. Uses a little battery.',
+    bgPermHint:'Allow notifications for ESP-Claw in the Android settings', bgOk:'Notifications enabled', bgNative:'Available in the Android app only',
+  },
+  ar: {
+    tabChat:'الدردشة', tabControl:'التحكم', tabSettings:'الإعدادات', settings:'الإعدادات',
+    online:'متصل', connecting:'جارٍ الاتصال…', offline:'غير متصل',
+    placeholder:'اكتب رسالة…', emptyTitle:'تحدّث مع ESP-Claw', emptyText:'اسأل أي شيء أو تحكّم بالجهاز.',
+    bannerOffline:'تعذّر الوصول إلى الجهاز. تحقق من الواي فاي والعنوان.',
+    sendFailed:'فشل الإرسال — اضغط لإعادة المحاولة', notConnected:'غير متصل بالجهاز',
+    deviceStatus:'حالة الجهاز', refresh:'تحديث', quick:'أوامر سريعة', actions:'إجراءات',
+    openPanel:'لوحة الجهاز الكاملة', openBrowser:'فتح في المتصفح', restart:'إعادة تشغيل الجهاز',
+    wifi:'الواي فاي', connected:'متصل', disconnected:'غير متصل', ip:'عنوان IP', mode:'وضع الواي فاي',
+    apSsid:'نقطة الوصول', webChat:'دردشة الويب', ready:'جاهزة', notReady:'غير جاهزة', storage:'مسار التخزين',
+    statusFail:'تعذّر قراءة حالة الجهاز',
+    restartTitle:'إعادة تشغيل الجهاز؟', restartText:'سيُعاد تشغيل الجهاز ويتصل من جديد خلال ثوانٍ.',
+    restartDone:'تم طلب إعادة التشغيل', cancel:'إلغاء', confirm:'تأكيد',
+    connection:'الاتصال', deviceAddress:'عنوان الجهاز',
+    addressHint:'عنوان IP أو اسم مضيف جهاز ESP-Claw (مثال 192.168.1.76). يجب أن يكون الهاتف والجهاز على نفس الشبكة.',
+    saveConnect:'حفظ واتصال', testing:'جارٍ الاختبار…', testOk:'تم الاتصال — عنوان الجهاز', testFail:'تعذّر الوصول إلى الجهاز',
+    appearance:'المظهر', language:'اللغة', theme:'السمة', themeAuto:'تلقائي', themeDark:'داكن', themeLight:'فاتح',
+    conversation:'المحادثة', newChat:'بدء محادثة جديدة', newChatHint:'يمسح السجل المحلي وينشئ معرّف دردشة جديداً.',
+    attachFail:'تعذّر إرفاق الصورة', uploaded:'تم إرفاق الصورة', about:'ESP-Claw للجوال',
+    q1:'كم الساعة؟', q2:'اعرض حالة الجهاز', q3:'ماذا تستطيع أن تفعل؟', q4:'اعرض المهام المجدولة',
+    scan:'البحث عن الجهاز في الشبكة', scanning:'جارٍ فحص الشبكة…', scanNone:'لم يُعثر على ESP-Claw في', scanOffline:'الهاتف غير متصل بشبكة واي فاي',
+    scanPick:'اضغط على جهاز للاتصال به',
+    notifications:'الإشعارات', bgLabel:'أخبرني بالردود في الخلفية',
+    bgHint:'يُبقي اتصالاً صغيراً بالجهاز في الخلفية لتصلك الردود كإشعارات حتى والتطبيق مغلق. يستهلك قليلاً من البطارية.',
+    bgPermHint:'اسمح بإشعارات ESP-Claw من إعدادات أندرويد', bgOk:'تم تفعيل الإشعارات', bgNative:'متاح في تطبيق أندرويد فقط',
+  },
+  fr: {
+    tabChat:'Chat', tabControl:'Contrôle', tabSettings:'Réglages', settings:'Réglages',
+    online:'En ligne', connecting:'Connexion…', offline:'Hors ligne',
+    placeholder:'Écrire un message…', emptyTitle:'Parlez à votre ESP-Claw', emptyText:'Posez une question ou pilotez l’appareil.',
+    bannerOffline:'Appareil injoignable. Vérifiez le Wi-Fi et l’adresse.',
+    sendFailed:'Échec — touchez pour réessayer', notConnected:'Non connecté à l’appareil',
+    deviceStatus:'État de l’appareil', refresh:'Actualiser', quick:'Demandes rapides', actions:'Actions',
+    openPanel:'Panneau complet', openBrowser:'Ouvrir dans le navigateur', restart:'Redémarrer l’appareil',
+    wifi:'Wi-Fi', connected:'Connecté', disconnected:'Déconnecté', ip:'Adresse IP', mode:'Mode Wi-Fi',
+    apSsid:'Point d’accès', webChat:'Chat web', ready:'Prêt', notReady:'Pas prêt', storage:'Chemin de stockage',
+    statusFail:'Impossible de lire l’état de l’appareil',
+    restartTitle:'Redémarrer l’appareil ?', restartText:'L’appareil va redémarrer et se reconnecter dans quelques secondes.',
+    restartDone:'Redémarrage demandé', cancel:'Annuler', confirm:'Confirmer',
+    connection:'Connexion', deviceAddress:'Adresse de l’appareil',
+    addressHint:'Adresse IP ou nom d’hôte de votre ESP-Claw (ex. 192.168.1.76). Le téléphone et l’appareil doivent être sur le même réseau.',
+    saveConnect:'Enregistrer et connecter', testing:'Test en cours…', testOk:'Connecté — IP de l’appareil', testFail:'Appareil injoignable',
+    appearance:'Apparence', language:'Langue', theme:'Thème', themeAuto:'Automatique', themeDark:'Sombre', themeLight:'Clair',
+    conversation:'Conversation', newChat:'Nouvelle conversation', newChatHint:'Efface l’historique local et crée un nouvel identifiant.',
+    attachFail:'Impossible de joindre l’image', uploaded:'Image jointe', about:'ESP-Claw Mobile',
+    q1:'Quelle heure est-il ?', q2:'Afficher l’état de l’appareil', q3:'Que sais-tu faire ?', q4:'Lister mes tâches planifiées',
+    scan:'Chercher l’appareil sur le réseau', scanning:'Analyse du réseau…', scanNone:'Aucun ESP-Claw trouvé sur', scanOffline:'Non connecté à un réseau Wi-Fi',
+    scanPick:'Touchez un appareil pour vous connecter',
+    notifications:'Notifications', bgLabel:'Me notifier des réponses en arrière-plan',
+    bgHint:'Garde une petite connexion en arrière-plan avec l’appareil pour recevoir les réponses en notification, même app fermée. Consomme un peu de batterie.',
+    bgPermHint:'Autorisez les notifications d’ESP-Claw dans les réglages Android', bgOk:'Notifications activées', bgNative:'Disponible uniquement dans l’app Android',
+  },
+};
+const detectLang = () => { const l = (navigator.language || 'en').slice(0, 2).toLowerCase(); return I18N[l] ? l : 'en'; };
+let lang = store.get('lang', '') || detectLang();
+const t = (k) => (I18N[lang] && I18N[lang][k]) || I18N.en[k] || k;
+
+function applyI18n() {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i]').forEach((el) => { el.textContent = t(el.dataset.i); });
+  $('input').placeholder = t('placeholder');
+  $('about').textContent = t('about') + ' v' + (NATIVE ? window.Android.version() : 'web');
+  $('mNo').textContent = t('cancel'); $('mYes').textContent = t('confirm');
+  $('quickChips').innerHTML = ['q1', 'q2', 'q3', 'q4'].map((k) => '<button class="chip" data-q="' + k + '">' + esc(t(k)) + '</button>').join('');
+  setConn(connState);
+  renderMsgs();
+  if (curTab === 'control') refreshStatus();
+}
+
+/* ---------------- theme ---------------- */
+let theme = store.get('theme', 'auto');
+const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function applyTheme() {
+  const eff = theme === 'auto' ? (mq && mq.matches ? 'dark' : 'light') : theme;
+  document.documentElement.dataset.theme = eff;
+  if (NATIVE) {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim() || '#161b22';
+    window.Android.setBars(bg, eff === 'light');
+  }
+}
+if (mq) mq.addEventListener('change', () => { if (theme === 'auto') applyTheme(); });
+
+/* ---------------- helpers ---------------- */
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function cleanHost(h) { return String(h || '').trim().replace(/^https?:\/\//i, '').replace(/^ws:\/\//i, '').replace(/\/.*$/, ''); }
+let host = cleanHost(store.get('host', '')) || DEFAULT_HOST;
+const baseUrl = () => 'http://' + host;
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'w-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+let chatId = store.get('chatId', '') || (() => { const id = uuid(); store.set('chatId', id); return id; })();
+
+let toastTimer = null;
+function toast(text) {
+  const box = $('toast'); box.innerHTML = '<div></div>'; const el = box.firstChild; el.textContent = text;
+  requestAnimationFrame(() => el.classList.add('show'));
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+function confirmBox(title, text) {
+  return new Promise((resolve) => {
+    $('mTitle').textContent = title; $('mText').textContent = text; $('modal').classList.add('show');
+    const done = (v) => { $('modal').classList.remove('show'); $('mYes').onclick = $('mNo').onclick = null; resolve(v); };
+    $('mYes').onclick = () => done(true); $('mNo').onclick = () => done(false);
+  });
+}
+
+/* ---------------- native HTTP bridge ---------------- */
+const pending = new Map(); let rid = 0;
+window.__http = (id, status, body) => { const r = pending.get(id); if (r) { pending.delete(id); r({ status, body }); } };
+function bridge(kind, a, b, c, timeout) {
+  return new Promise((resolve) => {
+    const id = 'r' + (++rid);
+    const timer = setTimeout(() => { if (pending.delete(id)) resolve({ status: 0, body: 'timeout' }); }, timeout || 30000);
+    pending.set(id, (r) => { clearTimeout(timer); resolve(r); });
+    if (NATIVE) {
+      if (kind === 'http') window.Android.http(id, baseUrl(), a, b, c == null ? '' : c);
+      else window.Android.upload(id, baseUrl(), a, b);
+    } else if (kind === 'http') {
+      fetch(baseUrl() + b, { method: a, body: c || undefined })
+        .then(async (res) => window.__http(id, res.status, await res.text()))
+        .catch((e) => window.__http(id, 0, String(e)));
+    } else {
+      window.__http(id, 0, 'upload needs the Android app');
+    }
+  });
+}
+const api = (method, path, body, timeout) => bridge('http', method, path, body, timeout);
+const parse = (s) => { try { return JSON.parse(s); } catch (e) { return null; } };
+const absUrl = (u) => (u && u.charAt(0) === '/' ? baseUrl() + u : u);
+function openUrl(u) { u = absUrl(u); if (NATIVE) window.Android.openUrl(u); else window.open(u, '_blank'); }
+
+/* ---------------- markdown (small, safe) ---------------- */
+function md(src) {
+  const hold = [];
+  const put = (html) => { hold.push(html); return ' ' + (hold.length - 1) + ' '; };
+  let s = esc(String(src).replace(/ /g, ''));
+  s = s.replace(/```([\s\S]*?)```/g, (m, c) => put('<pre><code>' + c.replace(/^\w*\n/, '') + '</code></pre>'));
+  s = s.replace(/`([^`\n]+)`/g, (m, c) => put('<code>' + c + '</code>'));
+  s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]*)\)/g, (m, txt, u) => put('<a href="' + u + '">' + txt + '</a>'));
+  s = s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, (m, p, u) => p + put('<a href="' + u + '">' + u + '</a>'));
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/^#{1,3} +(.+)$/gm, '<strong>$1</strong>');
+  s = s.replace(/^[-*] +/gm, '• ');
+  s = s.replace(/\n/g, '<br>');
+  return s.replace(/ (\d+) /g, (m, i) => hold[+i]);
+}
+
+/* ---------------- messages ---------------- */
+// The typing indicator lives inside #msgs so it scrolls with the conversation; keep a reference
+// because renderMsgs() rebuilds the container's innerHTML.
+const typingEl = document.createElement('div');
+typingEl.id = 'typing'; typingEl.innerHTML = '<i></i><i></i><i></i>';
+let msgs = [];
+try { msgs = JSON.parse(store.get('msgs', '[]')) || []; } catch (e) { msgs = []; }
+// A message left "pending" by a previous session can never be confirmed.
+msgs.forEach((m) => { if (m.status === 'pending') m.status = 'failed'; });
+const saveMsgs = () => store.set('msgs', JSON.stringify(msgs.slice(-MAX_MSGS)));
+const fmtTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const isImg = (u) => /\.(png|jpe?g|gif|webp)(\?|$)/i.test(u || '');
+
+function msgHtml(m, i) {
+  let inner = '';
+  if (m.text) inner = '<div class="b" dir="auto">' + md(m.text) + '</div>';
+  let att = '';
+  (m.links || []).forEach((l) => {
+    const u = absUrl(l.url);
+    att += isImg(l.url) ? '<a href="' + esc(u) + '"><img loading="lazy" src="' + esc(u) + '" alt=""></a>'
+                        : '<a href="' + esc(u) + '">📎 ' + esc(l.label || l.url) + '</a>';
+  });
+  (m.files || []).forEach((f) => {
+    att += f.thumb ? '<img src="' + f.thumb + '" alt="">' : '<span>📎 ' + esc(f.name) + '</span>';
+  });
+  if (att) att = '<div class="att">' + att + '</div>';
+  const fail = m.status === 'failed' ? '<span class="fail" data-retry="' + i + '">' + esc(t('sendFailed')) + '</span>' : '';
+  return '<div class="m ' + (m.role === 'user' ? 'u' : 'a') + '">' + inner + att +
+         '<div class="meta"><span>' + fmtTime(m.ts) + '</span>' + fail + '</div></div>';
+}
+
+function renderMsgs() {
+  const box = $('msgs');
+  const stick = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  if (!msgs.length) {
+    box.innerHTML = '<div class="empty"><div class="big">🦞</div><b>' + esc(t('emptyTitle')) + '</b><div>' + esc(t('emptyText')) +
+      '</div><div class="chips">' + ['q1', 'q2', 'q3'].map((k) => '<button class="chip" data-q="' + k + '">' + esc(t(k)) + '</button>').join('') + '</div></div>';
+  } else {
+    box.innerHTML = msgs.map(msgHtml).join('');
+  }
+  box.appendChild(typingEl);
+  if (stick || !msgs.length) box.scrollTop = box.scrollHeight;
+}
+function scrollDown() { const b = $('msgs'); requestAnimationFrame(() => { b.scrollTop = b.scrollHeight; }); }
+
+let typingTimer = null;
+function setTyping(on) {
+  typingEl.classList.toggle('show', on);
+  clearTimeout(typingTimer);
+  if (on) { typingTimer = setTimeout(() => setTyping(false), TYPING_TIMEOUT_MS); scrollDown(); }
+}
+
+/* ---------------- websocket ---------------- */
+let ws = null, hb = null, reconnectT = null, connectT = null, backoff = 2000, connState = 'offline';
+function setConn(state) {
+  connState = state;
+  $('conn').dataset.s = state; $('connText').textContent = t(state);
+  $('hostLabel').textContent = host;
+  const showBanner = state === 'offline' && curTab === 'chat';
+  $('banner').classList.toggle('show', showBanner);
+  $('bannerText').textContent = t('bannerOffline');
+}
+function teardown() {
+  clearInterval(hb); clearTimeout(reconnectT); clearTimeout(connectT);
+  if (ws) { const s = ws; ws = null; s.onopen = s.onclose = s.onerror = s.onmessage = null; try { s.close(); } catch (e) { /* ignore */ } }
+}
+function scheduleReconnect() {
+  clearTimeout(reconnectT);
+  reconnectT = setTimeout(connect, backoff);
+  backoff = Math.min(backoff * 1.5, 8000);
+}
+function connect() {
+  teardown(); setConn('connecting');
+  let s;
+  try { s = new WebSocket('ws://' + host + '/ws/webim'); } catch (e) { setConn('offline'); scheduleReconnect(); return; }
+  ws = s;
+  connectT = setTimeout(() => { if (ws === s && s.readyState === 0) { try { s.close(); } catch (e) { /* ignore */ } } }, 8000);
+  s.onopen = () => {
+    clearTimeout(connectT); backoff = 2000; setConn('online');
+    try { s.send(JSON.stringify({ type: 'hello', chat_id: chatId })); } catch (e) { /* ignore */ }
+    hb = setInterval(() => { if (s.readyState === 1) { try { s.send('{"type":"ping"}'); } catch (e) { /* ignore */ } } }, 15000);
+  };
+  s.onclose = () => { if (ws !== s) return; clearInterval(hb); setConn('offline'); scheduleReconnect(); };
+  s.onerror = () => { /* onclose follows */ };
+  s.onmessage = (ev) => {
+    const d = parse(ev.data);
+    if (!d || d.chat_id !== chatId || d.role !== 'assistant') return;
+    msgs.push({ role: 'assistant', text: String(d.text || ''), links: Array.isArray(d.links) ? d.links : [], ts: Date.now() });
+    saveMsgs(); setTyping(false); renderMsgs(); scrollDown();
+  };
+}
+// With background notifications on, the native service owns the socket while the app is hidden,
+// so the page drops its own connection (no duplicates) and re-syncs when it comes back.
+let bgOn = NATIVE && store.get('bg', '0') === '1';
+const syncBg = () => (NATIVE ? window.Android.setBackground(bgOn, host, chatId) : true);
+function drainBg() {
+  if (!NATIVE) return;
+  const arr = parse(window.Android.drainMessages());
+  if (!Array.isArray(arr) || !arr.length) return;
+  arr.forEach((o) => msgs.push({ role: 'assistant', text: String(o.text || ''), links: Array.isArray(o.links) ? o.links : [], ts: o.ts || Date.now() }));
+  saveMsgs(); setTyping(false); renderMsgs(); scrollDown();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { if (bgOn) teardown(); return; }
+  if (bgOn) drainBg();
+  if (!ws || ws.readyState > 1) { backoff = 2000; connect(); }
+});
+
+/* ---------------- sending ---------------- */
+let pendingFiles = [];
+async function postMessage(m) {
+  m.status = 'pending'; saveMsgs();
+  const body = JSON.stringify({ chat_id: chatId, text: m.text || '', files: (m.files || []).map((f) => f.path) });
+  const r = await api('POST', '/api/webim/send', body, 20000);
+  m.status = r.status >= 200 && r.status < 300 ? 'sent' : 'failed';
+  if (m.status === 'sent') setTyping(true);
+  saveMsgs(); renderMsgs();
+}
+async function send(text) {
+  text = (text || '').trim();
+  const files = pendingFiles.slice();
+  if (!text && !files.length) return;
+  if (connState !== 'online') { toast(t('notConnected')); return; }
+  const m = { role: 'user', text, files, ts: Date.now(), status: 'pending' };
+  msgs.push(m); pendingFiles = []; renderPending(); renderMsgs(); scrollDown();
+  await postMessage(m);
+}
+$('sendBtn').onclick = () => { const v = $('input').value; $('input').value = ''; autoGrow(); send(v); };
+function autoGrow() { const el = $('input'); el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+$('input').addEventListener('input', autoGrow);
+$('msgs').addEventListener('click', (e) => {
+  const q = e.target.closest('[data-q]'); if (q) { send(t(q.dataset.q)); return; }
+  const rt = e.target.closest('[data-retry]');
+  if (rt) { const m = msgs[+rt.dataset.retry]; if (m && connState === 'online') { renderMsgs(); postMessage(m); } else toast(t('notConnected')); return; }
+  const a = e.target.closest('a'); if (a) { e.preventDefault(); openUrl(a.getAttribute('href')); }
+});
+$('quickChips').addEventListener('click', (e) => { const q = e.target.closest('[data-q]'); if (q) { goTab('chat'); send(t(q.dataset.q)); } });
+
+/* ---------------- image attach ---------------- */
+function renderPending() {
+  const box = $('pending'); box.classList.toggle('show', pendingFiles.length > 0);
+  box.innerHTML = pendingFiles.map((f, i) => '<div class="pf"><img src="' + f.thumb + '" alt=""><button data-rm="' + i + '">×</button></div>').join('');
+}
+$('pending').addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (b) { pendingFiles.splice(+b.dataset.rm, 1); renderPending(); } });
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image')); };
+    img.src = url;
+  });
+}
+function toJpeg(img, maxPx, quality) {
+  const k = Math.min(1, maxPx / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', quality);
+}
+$('attach').onclick = () => $('file').click();
+$('file').onchange = async () => {
+  const file = $('file').files[0]; $('file').value = '';
+  if (!file) return;
+  try {
+    const img = await loadImage(file);
+    const full = toJpeg(img, IMG_MAX_PX, 0.8), thumb = toJpeg(img, THUMB_PX, 0.6);
+    const name = Date.now().toString(36) + '.jpg', path = '/inbox/webim/' + name;
+    await api('POST', '/api/files/mkdir', JSON.stringify({ path: '/inbox/webim', recursive: true }));
+    const r = await bridge('upload', path, full.split(',')[1]);
+    if (r.status < 200 || r.status >= 300) throw new Error('upload ' + r.status);
+    pendingFiles.push({ path, name, thumb }); renderPending(); toast(t('uploaded'));
+  } catch (e) { toast(t('attachFail')); }
+};
+
+/* ---------------- control tab ---------------- */
+async function refreshStatus() {
+  const rows = $('statusRows');
+  const [a, b] = await Promise.all([api('GET', '/api/status', null, 8000), api('GET', '/api/webim/status', null, 8000)]);
+  const st = a.status === 200 ? parse(a.body) : null;
+  if (!st) { rows.innerHTML = '<div class="row"><span>' + esc(t('statusFail')) + '</span><span><span class="tag bad">✕</span></span></div>'; return; }
+  const wb = b.status === 200 ? parse(b.body) : null;
+  const tag = (ok, yes, no) => '<span class="tag ' + (ok ? 'ok' : 'bad') + '">' + esc(ok ? yes : no) + '</span>';
+  const row = (k, v) => '<div class="row"><span>' + esc(t(k)) + '</span><span>' + v + '</span></div>';
+  rows.innerHTML =
+    row('wifi', tag(st.wifi_connected, t('connected'), t('disconnected'))) +
+    row('ip', esc(st.ip || '—')) + row('mode', esc(st.wifi_mode || '—')) +
+    (st.ap_active ? row('apSsid', esc(st.ap_ssid || '—')) : '') +
+    row('webChat', tag(wb && wb.bound, t('ready'), t('notReady'))) +
+    row('storage', esc(st.storage_base_path || '—'));
+}
+$('refreshBtn').onclick = refreshStatus;
+$('openPanel').onclick = () => { $('frame').src = baseUrl() + '/'; $('panel').classList.add('show'); };
+$('panelBack').onclick = closePanel;
+$('panelReload').onclick = () => { $('frame').src = baseUrl() + '/'; };
+function closePanel() { $('panel').classList.remove('show'); $('frame').src = 'about:blank'; }
+$('openBrowser').onclick = () => openUrl(baseUrl() + '/');
+$('restartBtn').onclick = async () => {
+  if (!(await confirmBox(t('restartTitle'), t('restartText')))) return;
+  const r = await api('POST', '/api/restart', '{}');
+  toast(r.status === 200 ? t('restartDone') : t('notConnected'));
+};
+
+/* ---------------- settings tab ---------------- */
+async function testHost() {
+  const res = $('testRes'); res.className = ''; res.textContent = t('testing');
+  const r = await api('GET', '/api/status', null, 8000);
+  const st = r.status === 200 ? parse(r.body) : null;
+  if (st) { res.className = 'ok'; res.textContent = '✓ ' + t('testOk') + ' ' + (st.ip || host); } else { res.className = 'bad'; res.textContent = '✕ ' + t('testFail'); }
+  return !!st;
+}
+$('saveHost').onclick = async () => {
+  const h = cleanHost($('hostInput').value); if (!h) return;
+  host = h; store.set('host', h); backoff = 2000; connect();
+  if (bgOn) syncBg();
+  await testHost();
+};
+$('scanBtn').onclick = () => {
+  if (!NATIVE) { toast(t('bgNative')); return; }
+  $('scanRes').textContent = t('scanning'); $('scanBtn').disabled = true;
+  window.Android.scan('s');
+};
+window.__scan = (id, r) => {
+  const box = $('scanRes'); $('scanBtn').disabled = false;
+  if (!r || r.error || !r.devices) { box.textContent = t('scanOffline'); return; }
+  if (!r.devices.length) { box.textContent = t('scanNone') + ' ' + r.prefix + 'x'; return; }
+  box.innerHTML = '<div>' + esc(t('scanPick')) + '</div><div class="chips" style="justify-content:flex-start">' +
+    r.devices.map((ip) => '<button class="chip" data-ip="' + esc(ip) + '">' + esc(ip) + '</button>').join('') + '</div>';
+};
+$('scanRes').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ip]'); if (!b) return;
+  $('hostInput').value = b.dataset.ip; $('saveHost').click();
+});
+$('bgToggle').checked = bgOn;
+$('bgToggle').onchange = () => {
+  if (!NATIVE) { toast(t('bgNative')); $('bgToggle').checked = false; return; }
+  bgOn = $('bgToggle').checked; store.set('bg', bgOn ? '1' : '0');
+  const allowed = syncBg();
+  if (bgOn && !allowed) toast(t('bgPermHint'));
+};
+window.__perm = (ok) => toast(ok ? t('bgOk') : t('bgPermHint'));
+$('langSel').onchange = () => { lang = $('langSel').value; store.set('lang', lang); applyI18n(); };
+$('themeSel').onchange = () => { theme = $('themeSel').value; store.set('theme', theme); applyTheme(); };
+$('newChat').onclick = async () => {
+  if (!(await confirmBox(t('newChat'), t('newChatHint')))) return;
+  chatId = uuid(); store.set('chatId', chatId); msgs = []; saveMsgs(); setTyping(false); renderMsgs();
+  if (bgOn) syncBg();
+  if (ws && ws.readyState === 1) { try { ws.send(JSON.stringify({ type: 'hello', chat_id: chatId })); } catch (e) { /* ignore */ } }
+  goTab('chat');
+};
+$('bannerBtn').onclick = () => goTab('settings');
+
+/* ---------------- tabs ---------------- */
+let curTab = 'chat', statusTimer = null;
+function goTab(name) {
+  curTab = name;
+  document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'v-' + name));
+  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  clearInterval(statusTimer);
+  if (name === 'control') { refreshStatus(); statusTimer = setInterval(refreshStatus, 10000); }
+  // Measure the composer only once the chat view is laid out (a hidden/unsized textarea reports a bogus height).
+  if (name === 'chat') { autoGrow(); scrollDown(); }
+  if (name === 'settings') $('hostInput').value = host;
+  setConn(connState);
+}
+document.querySelectorAll('nav button').forEach((b) => { b.onclick = () => goTab(b.dataset.tab); });
+
+// Called by the native side on the Back button; true = handled here.
+window.__onBack = () => {
+  if ($('modal').classList.contains('show')) { $('mNo').click(); return true; }
+  if ($('panel').classList.contains('show')) { closePanel(); return true; }
+  if (curTab !== 'chat') { goTab('chat'); return true; }
+  return false;
+};
+
+/* ---------------- boot ---------------- */
+$('langSel').value = lang; $('themeSel').value = theme; $('hostInput').value = host;
+applyTheme(); applyI18n(); connect();
+if (bgOn) { drainBg(); syncBg(); }
+if (!store.get('host', '')) goTab('settings');
+})();
+</script>
+</body>
+</html>

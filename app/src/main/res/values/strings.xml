@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ESP-Claw</string>
+    <string name="channel_service">Background connection</string>
+    <string name="channel_messages">Replies</string>
+    <string name="service_running">Connected in background to %1$s</string>
+    <string name="new_message">New message</string>
+</resources>

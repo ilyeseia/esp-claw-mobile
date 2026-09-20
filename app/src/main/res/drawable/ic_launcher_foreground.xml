@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- chat bubble -->
+    <path
+        android:fillColor="#FF6A3D"
+        android:pathData="M30,32 L78,32 Q86,32 86,40 L86,64 Q86,72 78,72 L58,72 L44,84 L44,72 L30,72 Q22,72 22,64 L22,40 Q22,32 30,32 Z" />
+    <!-- chip body -->
+    <path
+        android:fillColor="#161B22"
+        android:pathData="M42,42 L66,42 Q68,42 68,44 L68,60 Q68,62 66,62 L42,62 Q40,62 40,60 L40,44 Q40,42 42,42 Z" />
+    <!-- chip core -->
+    <path
+        android:fillColor="#FF6A3D"
+        android:pathData="M48,48 L60,48 L60,56 L48,56 Z" />
+    <!-- chip pins -->
+    <path
+        android:fillColor="#161B22"
+        android:pathData="M45,38 L47,38 L47,42 L45,42 Z M53,38 L55,38 L55,42 L53,42 Z M61,38 L63,38 L63,42 L61,42 Z M45,62 L47,62 L47,66 L45,66 Z M53,62 L55,62 L55,66 L53,66 Z M61,62 L63,62 L63,66 L61,66 Z" />
+</vector>
