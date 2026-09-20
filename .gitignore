@@ -6,3 +6,6 @@ local.properties
 captures/
 .cxx/
 dist/
+keystore.properties*
+*.jks
+*.keystore
